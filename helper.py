@@ -1,7 +1,7 @@
 # load the data and check the shape of its attributes
 import numpy as np
 
-def load_and_inspect(filepath:str, dataset_name:str):
+def load_dataset(filepath:str, dataset_name:str):
     dataset = np.load(filepath)
     Xtr = dataset['Xtr']
     Str = dataset['Str']
@@ -26,11 +26,11 @@ def load_and_inspect(filepath:str, dataset_name:str):
         Xtr = Xtr.reshape(-1, 28, 28, 1)
         Xts = Xts.reshape(-1, 28, 28, 1)
 
-    print('Dataset loaded with the following shapes:')
-    print('Xtr:', Xtr.shape)
-    print('Str:', Str.shape)
-    print('Xts:', Xts.shape)
-    print('Yts:', Yts.shape)
+    # print('Dataset loaded with the following shapes:')
+    # print('Xtr:', Xtr.shape)
+    # print('Str:', Str.shape)
+    # print('Xts:', Xts.shape)
+    # print('Yts:', Yts.shape)
 
     return Xtr, Str, Xts, Yts, T
 
