@@ -10,6 +10,7 @@ from loss_functions import (
     RememberRateScheduler,
     _infer_noise_rate_from_name, 
 )
+from anchor_estimator import estimate_T
 import tensorflow as tf
 from tensorflow import keras
 
@@ -39,12 +40,6 @@ def load_dataset(filepath:str, dataset_name:str):
     if len(Xtr.shape) == 2:
         Xtr = Xtr.reshape(-1, 28, 28, 1)
         Xts = Xts.reshape(-1, 28, 28, 1)
-
-    # print('Dataset loaded with the following shapes:')
-    # print('Xtr:', Xtr.shape)
-    # print('Str:', Str.shape)
-    # print('Xts:', Xts.shape)
-    # print('Yts:', Yts.shape)
 
     return Xtr, Str, Xts, Yts, T
 
@@ -165,6 +160,8 @@ def train_model(X_train, y_train, X_val, y_val,dataset, method="fc",transition_m
         loss_function = symmetric_cross_entropy(alpha=alpha, beta=beta, A=A, num_classes=num_classes)
 
     elif method in {"fc", "forward"}:
+        if transition_matrix is None:
+            transition_matrix = estimate_T(dataset, 10, 0)
         assert transition_matrix is not None, "FC requires a (known or estimated) transition matrix."
         loss_function = forward_correction_loss(transition_matrix, num_classes=num_classes)
 
