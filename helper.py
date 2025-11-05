@@ -10,7 +10,7 @@ from loss_functions import (
     RememberRateScheduler,
     _infer_noise_rate_from_name, 
 )
-from anchor_estimator import estimate_T
+import anchor_estimator
 import tensorflow as tf
 from tensorflow import keras
 
@@ -160,9 +160,9 @@ def train_model(X_train, y_train, X_val, y_val,dataset, method="fc",transition_m
         loss_function = symmetric_cross_entropy(alpha=alpha, beta=beta, A=A, num_classes=num_classes)
 
     elif method in {"fc", "forward"}:
-        if transition_matrix is None:
-            transition_matrix = estimate_T(dataset, 10, 0)
-        assert transition_matrix is not None, "FC requires a (known or estimated) transition matrix."
+        # if transition_matrix is None:
+        #     transition_matrix = anchor_estimator.estimate_T(dataset, 10, 1)
+        # assert transition_matrix is not None, "FC requires a (known or estimated) transition matrix."
         loss_function = forward_correction_loss(transition_matrix, num_classes=num_classes)
 
     elif method == "coteaching":
@@ -262,12 +262,13 @@ def run_all_experiments(datasets, methods, num_runs=10, epochs=50):
     results = []
     
     for dataset in datasets:
+        data_path = f'datasets/{dataset}.npz'
+        Xtr, Str, Xts, Yts, T = load_dataset(data_path, dataset) 
+        if dataset == 'CIFAR':
+            T = anchor_estimator.estimate_T(dataset, 10, 0)
         for method in methods:
             print(f"Running {method.upper()} on {dataset}...")
 
-            data_path = f'datasets/{dataset}.npz'
-
-            Xtr, Str, Xts, Yts, T = load_dataset(data_path, dataset) 
             accuracies = run_single_experiment(
                 Xtr, Str, Xts, Yts, T, dataset, method, num_runs, epochs
             )
