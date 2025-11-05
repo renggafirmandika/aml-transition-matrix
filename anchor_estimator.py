@@ -32,28 +32,16 @@ def temperature_scale_probs(probs, y_int, T_grid=None):
 
 def estimate_T_anchor_from_probs(probs, y_noisy: np.ndarray, top_k: int = 50):
     N, C = probs.shape
-    T_rows = []
-    for i in range(C):
-        idx_i = np.where(y_noisy == i)[0]
-        if idx_i.size == 0:
-            # fallback: uniform row if no examples with noisy label i
-            T_rows.append(np.full((C,), 1.0 / C, dtype=np.float32))
-            continue
-
-        # confidence for class i on those examples
-        conf_i = probs[idx_i, i]
-        if idx_i.size <= top_k:
-            top_idx = idx_i
-        else:
-            # pick top_k by confidence
-            top_local = np.argpartition(conf_i, -top_k)[-top_k:]
-            top_idx = idx_i[top_local]
-
-        anchors = probs[top_idx]                # (K, C) ≈ p(tilde | X anchors of class i)
-        row = anchors.mean(axis=0)              # empirical P(tilde=. | Y=i) up to norm
-        T_rows.append(row.astype(np.float32))
-    T = np.stack(T_rows, axis=0)                      
-    T = ensure_row_stochastic(T, EPS) 
+    cols = []
+    for j in range(C):
+        conf_j = probs[:, j] 
+        k = min(top_k, conf_j.size)
+        top_idx = np.argpartition(conf_j, -k)[-k:] 
+        anchors = probs[top_idx] 
+        col = anchors.mean(axis=0).astype(np.float32)
+        cols.append(col)
+    T = np.stack(cols, axis=0)                      
+    T = ensure_column_stochastic(T, EPS) 
     return T
 
 
@@ -101,9 +89,10 @@ def estimate_T(dataset_name="",
     p_val_cal, bestT = temperature_scale_probs(p_val, y_val)          
     T_hat = estimate_T_anchor_from_probs(p_val_cal, y_noisy=y_val, top_k=50)  
 
-    mae = np.mean(np.abs(T_hat - T_true))
-    max_error = np.max(np.abs(T_hat - T_true))
-    frobenius = np.linalg.norm(T_hat - T_true, 'fro')
+    if T_true is not None:
+        mae = np.mean(np.abs(T_hat - T_true))
+        max_error = np.max(np.abs(T_hat - T_true))
+        frobenius = np.linalg.norm(T_hat - T_true, 'fro')
 
    
 
@@ -118,9 +107,10 @@ def estimate_T(dataset_name="",
         print(T_true)                        
         print("------------------------------")
 
-        print(f"Mean Absolute Error:  {mae:.4f}")
-        print(f"Max Absolute Error:   {max_error:.4f}")
-        print(f"Frobenius Norm Error: {frobenius:.4f}")
+        if T_true is not None:
+            print(f"Mean Absolute Error:  {mae:.4f}")
+            print(f"Max Absolute Error:   {max_error:.4f}")
+            print(f"Frobenius Norm Error: {frobenius:.4f}")
 
     return T_hat
     
