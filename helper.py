@@ -16,6 +16,17 @@ from tensorflow import keras
 
 RANDOM_SEED = 42
 
+BEST_PARAMS = {
+    ("FashionMNIST0.3", "sce"):       {"alpha": 0.01, "beta": 1.0, "A": -1.0, "lr": 0.001},
+    ("FashionMNIST0.6", "sce"):       {"alpha": 0.01, "beta": 0.5, "A": -4.0, "lr": 0.001},
+    ("CIFAR",           "sce"):       {"alpha": 0.05, "beta": 1.0, "A": -4.0, "lr": 0.001},
+
+    ("FashionMNIST0.3", "coteaching"):{"warmup": 10, "lr": 0.001},
+    ("FashionMNIST0.6", "coteaching"):{"warmup": 5,  "lr": 0.0005},
+    ("CIFAR",           "coteaching"):{"warmup": 5,  "lr": 0.0005},
+}
+
+
 def load_dataset(filepath:str, dataset_name:str):
     dataset = np.load(filepath)
     Xtr = dataset['Xtr']
@@ -40,6 +51,9 @@ def load_dataset(filepath:str, dataset_name:str):
     if len(Xtr.shape) == 2:
         Xtr = Xtr.reshape(-1, 28, 28, 1)
         Xts = Xts.reshape(-1, 28, 28, 1)
+
+    Str = Str.astype(np.int32).ravel()
+    Yts = Yts.astype(np.int32).ravel()
 
     return Xtr, Str, Xts, Yts, T
 
@@ -138,7 +152,10 @@ def train_model(X_train, y_train, X_val, y_val,dataset, method="fc",transition_m
     model = cnn_model(input_shape=input_shape, num_classes=num_classes)
     callbacks = []
 
-    if method == "sce":
+    if method in {"ce", "baseline"}:                        
+        loss_function = keras.losses.SparseCategoricalCrossentropy(from_logits=False)
+
+    elif method == "sce":
         # Defaults (your original)
         if dataset == "FashionMNIST0.3":
             alpha, beta = 0.01, 1.0
@@ -204,15 +221,20 @@ def evaluate_model(model, X_test, y_test):
     accuracy = np.mean(predicted_classes == y_test) * 100
     return accuracy
 
+def _get_best_params(dataset, method):
+    return BEST_PARAMS.get((dataset, method), None)
+
 def run_single_experiment(Xtr, Str, Xts, Yts, T, dataset, method,num_runs=10, epochs=50, method_params=None):
     Xtr = Xtr.astype('float32') / 255.0
     Xts = Xts.astype('float32') / 255.0
     input_shape = Xtr.shape[1:]
     num_classes = 3
-
-    # FC path left as-is (optional)
+    if method in {"sce", "coteaching"} and method_params is None:
+        method_params = _get_best_params(dataset, method)
+    
+    # FC path left as-is
     if method in {"fc", "forward"}:
-        transition_matrix = T  # or your estimator later
+        transition_matrix = T  
     else:
         transition_matrix = None
 
@@ -244,6 +266,12 @@ def run_single_experiment(Xtr, Str, Xts, Yts, T, dataset, method,num_runs=10, ep
                 X_train, y_train, X_val, y_val,
                 dataset=dataset, method="fc",
                 transition_matrix=transition_matrix,
+                epochs=epochs, input_shape=input_shape, num_classes=num_classes
+            )
+        elif method in {"ce", "baseline"}:
+            model = train_model(
+                X_train, y_train, X_val, y_val,
+                dataset=dataset, method="ce",
                 epochs=epochs, input_shape=input_shape, num_classes=num_classes
             )
         else:
