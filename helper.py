@@ -1,3 +1,4 @@
+# this script defines how we load datasets, how to split the data, train & evaluate model, how to get the best hyperparameters
 # load the data and check the shape of its attributes
 import pandas as pd
 import numpy as np

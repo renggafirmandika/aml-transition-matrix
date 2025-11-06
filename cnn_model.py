@@ -1,6 +1,14 @@
 from tensorflow import keras
 
 def cnn_model(input_shape=(28, 28, 1), num_classes=3):
+    """it builds the cnn block
+
+    Args:
+        input_shape (tuple, optional): the input shape of imgs. Defaults to (28, 28, 1).
+        num_classes (int, optional): how many classes. Defaults to 3.
+
+    Returns: model
+    """    
     model = keras.models.Sequential()
 
     # Specify the input shape

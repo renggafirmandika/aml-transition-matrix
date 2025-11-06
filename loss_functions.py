@@ -1,6 +1,7 @@
 import tensorflow as tf
 from tensorflow import keras
 
+# define the loss function of SCE
 def symmetric_cross_entropy(alpha=0.1, beta=1.0, A=-1.0, num_classes=3, epsilon=1e-7):
     def loss_function(y_true, y_pred):
         y_true = tf.cast(y_true, tf.int32)
@@ -24,7 +25,7 @@ def symmetric_cross_entropy(alpha=0.1, beta=1.0, A=-1.0, num_classes=3, epsilon=
 
     return loss_function
 
-
+# forward correction
 def forward_correction_loss(transition_matrix, num_classes = 3, epsilon = 1e-7):
     T = tf.constant(transition_matrix, dtype = tf.float32)
 
@@ -43,6 +44,7 @@ def forward_correction_loss(transition_matrix, num_classes = 3, epsilon = 1e-7):
         return tf.reduce_mean(ce_loss)
     return loss_function
 
+# coteaching
 class CoTeachingProxyLoss(keras.losses.Loss):
     def __init__(self, remember_rate=0.7, num_classes=3, epsilon=1e-7, name="co_teaching_proxy"):
         super().__init__(name=name)

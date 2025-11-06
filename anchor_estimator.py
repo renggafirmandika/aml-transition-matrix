@@ -4,19 +4,40 @@ import cnn_model
 import itertools
 from tensorflow import keras
 
+
+# EPS just avoid some of the situation like log(0)
 EPS = 1e-12
 RANDOM_SEED = 42
 
 def softmax(z):
+    '''
+    it subtracts each row’s maximum value, and normalizes by the row sum.
+    The result is a probability distribution over 𝐶 classes for each sample.
+    '''
     z = z - np.max(z, axis=1, keepdims=True)
     ez = np.exp(z)
     return ez / (np.sum(ez, axis=1, keepdims=True) + EPS)
 
 def temperature_scale_probs(probs, y_int, T_grid=None):
+    """it searches over a grid of temperature values and selects
+    the temperature that minimizes the validation cross-entropy loss.
+
+    Args:
+        probs (np.ndarray): Predicted probabilities of shape [N, C] from the model.
+        y_int (np.ndarray): Integer-encoded observed (noisy) labels of shape [N].
+        T_grid (np.ndarray, optional): Array of candidate temperature values (default: np.linspace(0.5, 5.0, 30)).
+
+    Returns:
+        tuple
+        probs_cal : np.ndarray
+            Calibrated probabilities of shape [N, C].
+        best_T : float
+            Optimal temperature selected from the grid.
+    """     
     if T_grid is None:
         T_grid = np.linspace(0.5, 5.0, 30)
     N, C = probs.shape
-    logits = np.log(np.clip(probs, EPS, 1.0))   # softmax(logits)=probs
+    logits = np.log(np.clip(probs, EPS, 1.0))
     y_one = np.eye(C)[y_int.astype(int)]
 
     def ce(p):
@@ -31,6 +52,20 @@ def temperature_scale_probs(probs, y_int, T_grid=None):
     return softmax(logits / best_T), best_T
 
 def estimate_T_anchor_from_probs(probs, y_noisy: np.ndarray, top_k: int = 50):
+    """it estimates the noise transition matrix using the high-confidence (anchor) method.
+
+    Args:
+        probs : np.ndarray
+            Calibrated probabilities of shape [N, C].
+        y_noisy : np.ndarray
+            Observed (noisy) labels of shape [N]. (Unused in this version.)
+        top_k : int, optional
+            Number of top high-confidence samples per class (default: 50).
+
+    Returns:
+        np.ndarray
+            Estimated column-stochastic transition matrix of shape [C, C].
+    """    
     N, C = probs.shape
     cols = []
     for j in range(C):
@@ -44,7 +79,7 @@ def estimate_T_anchor_from_probs(probs, y_noisy: np.ndarray, top_k: int = 50):
     T = ensure_column_stochastic(T, EPS) 
     return T
 
-
+# To match the anchor estimator calculation, make sure it aligns with the correct one
 def ensure_column_stochastic(T: np.ndarray, eps: float = 1e-12) -> np.ndarray:
     T = np.clip(T, 0, None)
     colsum = T.sum(axis=0, keepdims=True) + eps
@@ -55,6 +90,7 @@ def ensure_row_stochastic(T: np.ndarray, eps: float = 1e-12) -> np.ndarray:
     rowsum = T.sum(axis=1, keepdims=True) + eps
     return T / rowsum
 
+# How to calculate T
 def estimate_T(dataset_name="", 
                            epochs=10, verbose=1):
     if verbose == 1:
@@ -69,6 +105,7 @@ def estimate_T(dataset_name="",
     Str = Str.astype("int64")
     Yts = Yts.astype("int64")
 
+    # Normalization
     Xtr = Xtr.astype("float32") / 255.0
     Xts = Xts.astype("float32") / 255.0
 
